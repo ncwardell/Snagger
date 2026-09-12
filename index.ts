@@ -1,7 +1,25 @@
 import type { EPGGuide, M3USegment, SnagResponse } from './helpers/Interfaces';
 import { M3USegmentArrayToString, toXMLTV } from './helpers/Transformers';
-import { readdir } from 'fs/promises';
+import { snagXtream, type XtreamProvider } from './helpers/xtream';
+import { readdir, readFile } from 'fs/promises';
+import { existsSync } from 'fs';
 
+const PROVIDERS_PATH = './xtream-providers.json';
+
+async function loadProviders(): Promise<XtreamProvider[]> {
+    if (!existsSync(PROVIDERS_PATH)) return [];
+    try {
+        const text = await readFile(PROVIDERS_PATH, 'utf-8');
+        const data = JSON.parse(text);
+        if (!Array.isArray(data)) return [];
+        return data.filter((p: unknown): p is XtreamProvider =>
+            !!p && typeof p === 'object' && 'name' in p && 'host' in p && 'username' in p && 'password' in p
+        );
+    } catch (err) {
+        console.error('Failed to load xtream-providers.json:', err);
+        return [];
+    }
+}
 
 class SnaggerObject {
 
@@ -16,13 +34,22 @@ class SnaggerObject {
     constructor() {}
 
     snag = async (source: string) => {
+        // File-based source first
         try {
             const module = await import('./sources/' + source);
-            const response = await module.snag();
-            return response
-        } catch (error) {
-            console.error(error);
+            return await module.snag();
+        } catch {
+            // not a file source — fall through
         }
+
+        // Provider config
+        const providers = await loadProviders();
+        const provider = providers.find(p => p.name === source);
+        if (provider) {
+            return await snagXtream(provider);
+        }
+
+        console.error(`Unknown source: ${source}`);
     }
 
     getSources = async () => {
@@ -31,10 +58,11 @@ class SnaggerObject {
         try {
             const entries = await readdir(folderPath, { withFileTypes: true });
             const fileNames = entries
-                .filter(entry => !entry.isDirectory() && entry.name.endsWith('.ts')) // Filter for .ts files
-                .map(entry => entry.name.slice(0, -3)); // Remove .ts extension
+                .filter(entry => !entry.isDirectory() && entry.name.endsWith('.ts'))
+                .map(entry => entry.name.slice(0, -3));
 
-            sourceList.push(fileNames);
+            const providers = await loadProviders();
+            sourceList.push([...fileNames, ...providers.map(p => p.name)]);
         } catch (err) {
             console.error("Error reading directory:", err);
         }

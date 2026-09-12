@@ -1,0 +1,8 @@
+[
+  {
+    "name": "MyProvider",
+    "host": "http://example.com:80",
+    "username": "USER",
+    "password": "PASS"
+  }
+]

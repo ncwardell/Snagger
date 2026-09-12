@@ -119,6 +119,16 @@ dist
 # TernJS port file
 .tern-port
 
+# Snagger
+*.db
+*.db-shm
+*.db-wal
+playlist.m3u
+epg.xml
+xtream-providers.json
+resolvers.json
+trial.txt
+
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
 
@@ -128,3 +138,19 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Emby plugin dev
+emby/refs/
+emby/dev/config/
+emby/dev/media/
+emby/Snagger.Emby/bin/
+emby/Snagger.Emby/obj/
+
+# Widevine CDM identity — a provisioned device key. Never commit: publishing
+# one is grounds for repo takedown, and it is decryption material.
+device.wvd
+wvd-output/
+
+# Emby media server data (960M) and stray device images.
+emby/
+*.img

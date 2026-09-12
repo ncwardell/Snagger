@@ -102,9 +102,13 @@ export interface M3USegment {
 
 //--------------------------------
 
+export type StreamType = 'live' | 'movie' | 'series';
+
 export interface SnagResponse {
     source: string;
     epg: string;
     m3u: string;
     components: { m3u: M3USegment[], epg: { channels: EPGChannel[], programmes: EPGProgram[] } };
+    // Per-channel stream type, keyed by tvg-id / channel-id. Missing = 'live'.
+    streamTypes?: Record<string, StreamType>;
 }

@@ -1,0 +1,8 @@
+{
+  "realdebrid": {
+    "apiKey": "YOUR_REAL_DEBRID_API_KEY"
+  },
+  "torrentio": {
+    "endpoint": "https://torrentio.strem.fun"
+  }
+}

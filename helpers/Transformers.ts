@@ -2,9 +2,9 @@ import type { EPGChannel, EPGProgram, EPGGuide, M3USegment } from "./Interfaces"
 
 //Make it good - Yes I am a crackhead for doing it manually
 export function toXMLTV(guide: EPGGuide, prettyPrint: boolean = true) {
-    const escapeXML = (str: string): string => {
-        if (!str) return '';
-        return str
+    const escapeXML = (str: unknown): string => {
+        if (str === null || str === undefined || str === '') return '';
+        return String(str)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
@@ -84,16 +84,12 @@ export function M3USegmentArrayToString(_segment: M3USegment[]): string {
 }
 
 function M3USegmentToString(_segment: M3USegment): string {
-    let segment = '';
-    for (const [key, value] of Object.entries(_segment)) {
-        if (key === 'name') {
-            segment = segment.substring(0, segment.length - 1);
-            segment = segment + `,${value}\n`;
-        } else if (key === 'streamUrl') {
-            segment = segment + `${value}\n`;
-        } else {
-            segment = segment + `${key}="${value}" `;
-        }
+    const { '#EXTINF': extinf, name, streamUrl, ...attrs } = _segment;
+    let line = `#EXTINF:${extinf ?? -1}`;
+    for (const [key, value] of Object.entries(attrs)) {
+        if (value === undefined || value === null) continue;
+        line += ` ${key}="${value}"`;
     }
-    return segment;
+    line += `,${name}\n${streamUrl}\n`;
+    return line;
 }

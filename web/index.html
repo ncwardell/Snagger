@@ -1,0 +1,1781 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Snagger</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161922;
+    --panel-2: #1d2230;
+    --row-hover: #1a1f2c;
+    --border: #262c3a;
+    --fg: #e6e8ee;
+    --muted: #8a93a6;
+    --accent: #6aa9ff;
+    --accent-2: #8b6dff;
+    --danger: #ff6b6b;
+    --ok: #6bd49a;
+    --warn: #f5b962;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--fg);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; }
+
+  /* Header */
+  header {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  header h1 { margin: 0; font-size: 16px; letter-spacing: 0.5px; }
+  header h1 .emoji { margin-right: 6px; }
+  .spacer { flex: 1; }
+  .counts { color: var(--muted); font-size: 12px; }
+
+  button, select, input {
+    background: var(--panel-2); color: var(--fg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 10px; font: inherit;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.primary { background: var(--accent); color: #0b1220; border-color: var(--accent); font-weight: 600; }
+  button.danger:hover { color: var(--danger); border-color: var(--danger); }
+  button.icon-btn { padding: 4px 8px; }
+  input[type="search"], input[type="text"], input[type="url"] { min-width: 200px; }
+  input:focus, select:focus, button:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  label.field input, label.field select { color: var(--fg); }
+
+  /* Type tabs */
+  .tabs { display: flex; gap: 4px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .tab {
+    background: transparent; border: 1px solid transparent;
+    padding: 4px 12px; border-radius: 999px; cursor: pointer; color: var(--muted); font-size: 13px;
+  }
+  .tab:hover { color: var(--fg); }
+  .tab.active { background: var(--panel-2); border-color: var(--accent); color: var(--fg); }
+  .tab .badge { color: var(--muted); margin-left: 6px; font-size: 11px; }
+
+  /* Bulk bar */
+  .bulk {
+    display: none; align-items: center; gap: 10px;
+    padding: 8px 16px; background: var(--panel-2); border-bottom: 1px solid var(--border);
+    position: sticky; top: 53px; z-index: 9;
+  }
+  .bulk.show { display: flex; }
+  .bulk .count { font-weight: 600; }
+
+  /* Table */
+  main { padding: 0 0 80px; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  thead th {
+    text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--muted); font-weight: 600;
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:hover { background: var(--row-hover); }
+  tbody td { padding: 8px 12px; vertical-align: middle; }
+
+  col.col-check  { width: 40px; }
+  col.col-logo   { width: 56px; }
+  col.col-name   { width: auto; }
+  col.col-type   { width: 70px; }
+  col.col-source { width: 110px; }
+  col.col-group  { width: 160px; }
+  col.col-imdb   { width: 110px; }
+  col.col-toggle { width: 80px; }
+  col.col-actions{ width: 96px; }
+
+  .imdb-cell input {
+    width: 100%; background: transparent; border: 1px solid transparent; padding: 4px 6px;
+    border-radius: 6px; font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted);
+  }
+  .imdb-cell input:hover  { border-color: var(--border); }
+  .imdb-cell input:focus  { background: var(--panel-2); border-color: var(--accent); color: var(--fg); outline: none; }
+  .imdb-cell input.has-value { color: var(--accent); }
+
+  tr.disabled td:not(:first-child):not(:last-child) { opacity: 0.4; }
+
+  .logo {
+    width: 36px; height: 36px; border-radius: 6px; object-fit: contain;
+    background: var(--panel-2); border: 1px solid var(--border);
+  }
+  .logo.broken { visibility: hidden; }
+
+  .name-cell .name-input {
+    width: 100%; background: transparent; border: 1px solid transparent; padding: 6px 8px;
+    border-radius: 6px; font-weight: 500;
+  }
+  .name-cell .name-input:hover { border-color: var(--border); }
+  .name-cell .name-input:focus { background: var(--panel-2); border-color: var(--accent); }
+  .name-cell .name-input.overridden { color: var(--accent); }
+  .name-cell .channel-id { font-size: 11px; color: var(--muted); padding-left: 8px; }
+
+  .type-cell .pill {
+    display: inline-block; padding: 1px 8px; font-size: 11px; border-radius: 999px;
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--muted);
+    text-transform: capitalize;
+  }
+  .type-cell .pill.movie { color: var(--warn); border-color: var(--warn); }
+  .type-cell .pill.series { color: var(--accent-2); border-color: var(--accent-2); }
+  .type-cell .pill.live { color: var(--ok); border-color: var(--ok); }
+
+  .source-cell, .group-cell { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .group-cell.overridden { color: var(--accent-2); }
+
+  .toggle { display: inline-flex; align-items: center; cursor: pointer; user-select: none; }
+  .toggle input { display: none; }
+  .toggle .track { width: 34px; height: 18px; background: var(--panel-2); border-radius: 999px; position: relative; border: 1px solid var(--border); transition: background 0.15s; }
+  .toggle .track::after { content: ""; position: absolute; top: 1px; left: 1px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: left 0.15s, background 0.15s; }
+  .toggle input:checked + .track { background: rgba(106, 169, 255, 0.25); border-color: var(--accent); }
+  .toggle input:checked + .track::after { left: 17px; background: var(--accent); }
+
+  .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
+  .row-actions button { background: transparent; border-color: transparent; color: var(--muted); padding: 4px 8px; }
+  .row-actions button:hover { border-color: var(--border); color: var(--fg); }
+  .row-actions button.has-override { color: var(--accent); }
+
+  tr.expand td { padding: 0; background: var(--panel); }
+  .expand-inner {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    padding: 12px 16px 16px; border-top: 1px dashed var(--border);
+  }
+  .expand-inner input { width: 100%; }
+
+  /* Pagination footer */
+  .pager {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+    background: var(--panel); border-top: 1px solid var(--border); z-index: 8;
+  }
+  .pager .info { color: var(--muted); font-size: 12px; }
+  .pager .grow { flex: 1; }
+
+  .empty { padding: 60px 16px; text-align: center; color: var(--muted); }
+
+  .toast {
+    position: fixed; bottom: 60px; right: 16px;
+    background: var(--panel-2); border: 1px solid var(--border); border-left: 3px solid var(--ok);
+    padding: 10px 14px; border-radius: 6px; font-size: 13px;
+    opacity: 0; transform: translateY(8px); transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none; z-index: 50;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.error { border-left-color: var(--danger); }
+  .toast.warn  { border-left-color: var(--warn); }
+
+  @media (max-width: 1100px) {
+    col.col-source, col.col-group, col.col-imdb { display: none; }
+    .source-cell, .group-cell, .imdb-cell { display: none; }
+  }
+
+  /* Settings panel */
+  .settings-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99;
+    opacity: 0; pointer-events: none; transition: opacity 0.18s;
+  }
+  .settings-backdrop.open { opacity: 1; pointer-events: auto; }
+  .settings-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 92vw);
+    background: var(--panel); border-left: 1px solid var(--border);
+    transform: translateX(110%); transition: transform 0.22s ease;
+    z-index: 100; overflow-y: auto;
+    display: flex; flex-direction: column;
+  }
+  .settings-panel.open { transform: translateX(0); }
+  .settings-panel header {
+    position: sticky; top: 0; padding: 12px 16px; border-bottom: 1px solid var(--border);
+    background: var(--panel); display: flex; align-items: center; gap: 8px;
+  }
+  .settings-panel h2 { margin: 0; font-size: 16px; }
+  .settings-panel section { padding: 16px; border-bottom: 1px solid var(--border); }
+  .settings-panel section h3 {
+    margin: 0 0 12px; font-size: 12px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.6px;
+  }
+  .source-card {
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 12px; margin-bottom: 8px;
+  }
+  .source-card .head {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .source-card .name { font-weight: 600; }
+  .source-card .type {
+    font-size: 11px; padding: 1px 8px; border-radius: 999px;
+    background: var(--bg); border: 1px solid var(--border); color: var(--muted);
+    text-transform: uppercase;
+  }
+  .source-card .status {
+    font-size: 11px; color: var(--muted); margin-top: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .source-card .status.error { color: var(--danger); }
+  .source-card .status.ok { color: var(--ok); }
+  .source-card .actions { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+  .source-card .actions button { font-size: 12px; padding: 4px 10px; }
+  .source-form {
+    background: var(--panel-2); border: 1px dashed var(--border); border-radius: 6px;
+    padding: 12px; margin-top: 8px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .source-form label.field { font-size: 12px; }
+  .source-form input, .source-form select { width: 100%; }
+  .source-form .row { display: flex; gap: 8px; }
+  .source-form .row > * { flex: 1; }
+  .form-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+  .settings-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .settings-field label { font-size: 12px; color: var(--muted); }
+  .settings-field input { width: 100%; }
+
+  /* Catalog overlay */
+  .catalog-overlay {
+    position: fixed; inset: 0; z-index: 80;
+    background: var(--bg);
+    display: none; flex-direction: column;
+  }
+  .catalog-overlay.open { display: flex; }
+  .catalog-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  .catalog-header h2 { margin: 0; font-size: 16px; }
+  .catalog-tabs { display: flex; gap: 4px; }
+  .catalog-tabs button { font-size: 13px; padding: 4px 12px; border-radius: 999px; background: transparent; border: 1px solid var(--border); color: var(--muted); }
+  .catalog-tabs button.active { background: var(--panel-2); border-color: var(--accent); color: var(--fg); }
+  .catalog-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+  /* Grid */
+  .catalog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
+  }
+  .poster-card {
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+    overflow: hidden; cursor: pointer;
+    display: flex; flex-direction: column;
+  }
+  .poster-card:hover { border-color: var(--accent); }
+  .poster-card .img { background: var(--bg); aspect-ratio: 2/3; display: block; overflow: hidden; }
+  .poster-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .poster-card .meta { padding: 8px 10px; font-size: 13px; }
+  .poster-card .meta .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .poster-card .meta .sub { color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+  /* Detail */
+  .catalog-detail { display: flex; flex-direction: column; gap: 16px; }
+  .catalog-detail .head { display: flex; gap: 18px; }
+  .catalog-detail .poster { width: 200px; aspect-ratio: 2/3; background: var(--panel-2); border-radius: 8px; border: 1px solid var(--border); overflow: hidden; flex-shrink: 0; }
+  .catalog-detail .poster img { width: 100%; height: 100%; object-fit: cover; }
+  .catalog-detail .info h1 { margin: 0 0 4px; font-size: 22px; }
+  .catalog-detail .info .sub { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+  .catalog-detail .info .overview { line-height: 1.5; color: var(--fg); max-width: 60ch; }
+  .catalog-detail .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .url-display {
+    display: flex; gap: 8px; align-items: center;
+    background: var(--panel-2); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);
+    margin-top: 10px;
+  }
+  .url-display code {
+    font-family: ui-monospace, monospace; font-size: 12px;
+    color: var(--accent); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  .pin-chain { display: flex; flex-direction: column; gap: 6px; }
+  .pin-item {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 12px;
+  }
+  .pin-item .pin-num { color: var(--muted); font-size: 12px; min-width: 18px; }
+  .pin-item .pin-label { flex: 1; font-size: 13px; }
+  .pin-item .pin-type {
+    font-size: 10px; text-transform: uppercase; color: var(--muted);
+    padding: 1px 6px; border: 1px solid var(--border); border-radius: 999px;
+  }
+  .pin-item .pin-type.channel { color: var(--accent); border-color: var(--accent); }
+  .pin-item .pin-type.torrentio { color: var(--accent-2); border-color: var(--accent-2); }
+  .pin-item button { padding: 2px 8px; font-size: 11px; }
+
+  .sources-grid { display: flex; flex-direction: column; gap: 8px; }
+  .source-option {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .source-option .opt-label { flex: 1; font-size: 13px; }
+  .source-option .opt-sub { color: var(--muted); font-size: 11px; }
+  .source-option .quality-badge {
+    background: var(--bg); color: var(--warn); border: 1px solid var(--warn);
+    padding: 1px 6px; font-size: 10px; border-radius: 999px;
+  }
+
+  .episode-row {
+    display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .episode-row:hover { background: var(--row-hover); }
+  .episode-row .ep-num { color: var(--muted); min-width: 32px; font-size: 12px; padding-top: 4px; }
+  .episode-row .ep-info { flex: 1; }
+  .episode-row .ep-title { font-size: 13px; font-weight: 500; }
+  .episode-row .ep-sub { font-size: 11px; color: var(--muted); }
+
+  h4.section-h {
+    font-size: 12px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.6px;
+    margin: 16px 0 8px;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1><span class="emoji">📺</span>Snagger</h1>
+
+    <label class="field">Template
+      <select id="template-select"></select>
+    </label>
+    <button id="template-new"    class="icon-btn" title="New template">+</button>
+    <button id="template-delete" class="icon-btn danger" title="Delete template">×</button>
+
+    <label class="toggle" title="Route streams through Snagger (hides upstream IP, requires server to be reachable from clients)">
+      <input type="checkbox" id="proxy-toggle">
+      <span class="track"></span>
+      <span style="font-size: 12px; color: var(--muted); margin-left: 6px;">Proxy</span>
+    </label>
+
+    <button id="disable-all" class="danger" title="Disable every channel in this template">Disable all</button>
+    <button id="enable-all" title="Enable every channel in this template">Enable all</button>
+
+    <span class="spacer"></span>
+
+    <select id="source-filter">
+      <option value="">All sources</option>
+    </select>
+    <select id="group-filter">
+      <option value="">All groups</option>
+    </select>
+    <input id="search" type="search" placeholder="Search name or id…" />
+    <button id="refresh-btn" class="primary">Refresh</button>
+    <button id="catalog-btn" title="Browse catalog (TMDB)">📚 Catalog</button>
+    <button id="settings-btn" class="icon-btn" title="Settings">⚙</button>
+  </header>
+
+  <div class="catalog-overlay" id="catalog-overlay">
+    <div class="catalog-header">
+      <h2>📚 Catalog</h2>
+      <div class="catalog-tabs" id="catalog-kind">
+        <button class="active" data-kind="movie">Movies</button>
+        <button data-kind="tv">TV</button>
+      </div>
+      <input id="catalog-search" type="search" placeholder="Search…" style="flex: 1; max-width: 400px;">
+      <span class="spacer" style="flex: 1;"></span>
+      <button id="catalog-back" style="display: none;">← Back</button>
+      <button id="catalog-prev" class="icon-btn">‹</button>
+      <span class="counts" id="catalog-page-info">—</span>
+      <button id="catalog-next" class="icon-btn">›</button>
+      <button id="catalog-close" class="icon-btn" title="Close">×</button>
+    </div>
+    <div class="catalog-body" id="catalog-body">
+      <div id="catalog-grid-wrap"></div>
+      <div id="catalog-detail-wrap" style="display: none;"></div>
+    </div>
+  </div>
+
+  <div class="settings-backdrop" id="settings-backdrop"></div>
+  <aside class="settings-panel" id="settings-panel" aria-hidden="true">
+    <header>
+      <h2>Settings</h2>
+      <span class="spacer"></span>
+      <button id="settings-close" class="icon-btn" title="Close">×</button>
+    </header>
+
+    <section>
+      <h3>Sources</h3>
+      <div id="source-list"></div>
+      <button id="source-add-toggle" style="margin-top: 8px;">+ Add source</button>
+      <div id="source-add-container"></div>
+    </section>
+
+    <section>
+      <h3>Resolvers (IMDB / Real-Debrid)</h3>
+      <div class="settings-field">
+        <label for="set-rd">Real-Debrid API key</label>
+        <input id="set-rd" type="text" placeholder="Paste your RD API key">
+      </div>
+      <div class="settings-field">
+        <label for="set-torrentio">Torrentio endpoint</label>
+        <input id="set-torrentio" type="text" placeholder="https://torrentio.strem.fun">
+      </div>
+      <div class="settings-field">
+        <label for="set-tmdb">TMDB API key (v3) — for catalog browsing</label>
+        <input id="set-tmdb" type="text" placeholder="Paste your TMDB v3 key">
+      </div>
+      <div class="settings-field">
+        <label class="toggle" style="align-items: center;">
+          <input id="set-proxy-torrentio" type="checkbox">
+          <span class="track"></span>
+          <span style="margin-left: 8px;">Proxy Torrentio/Real-Debrid resolutions
+            <div style="color: var(--muted); font-size: 11px; margin-top: 2px;">When on, /imdb/&hellip; redirects through Snagger so the RD URL (with API key) never appears in .strm files or player logs. Channel/episode pins follow each source's own proxy mode.</div>
+          </span>
+        </label>
+      </div>
+      <div class="form-buttons">
+        <button id="settings-save" class="primary">Save</button>
+      </div>
+    </section>
+
+    <section>
+      <h3>Proxy cache</h3>
+      <div id="cache-stats" style="font-size: 12px; color: var(--muted);">—</div>
+    </section>
+
+    <section>
+      <h3>About</h3>
+      <p style="font-size: 12px; color: var(--muted); margin: 0;">
+        Snagger is in UI/server mode. Outputs:<br>
+        <code style="font-family: ui-monospace, monospace; color: var(--fg);">/playlist.m3u</code>,
+        <code style="font-family: ui-monospace, monospace; color: var(--fg);">/epg.xml</code>,
+        <code style="font-family: ui-monospace, monospace; color: var(--fg);">/imdb/tt…</code>
+      </p>
+    </section>
+  </aside>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-type="">All <span class="badge" id="badge-all"></span></button>
+    <button class="tab" data-type="live">Live <span class="badge" id="badge-live"></span></button>
+    <button class="tab" data-type="movie">Movies <span class="badge" id="badge-movie"></span></button>
+    <button class="tab" data-type="series">Series <span class="badge" id="badge-series"></span></button>
+  </div>
+
+  <div class="bulk" id="bulk-bar">
+    <span class="count" id="bulk-count">0 selected</span>
+    <button id="bulk-enable">Enable</button>
+    <button id="bulk-disable">Disable</button>
+    <button id="bulk-reset" class="danger">Reset overrides</button>
+    <span class="spacer"></span>
+    <button id="bulk-disable-all" title="Disable every channel matching current filter">Disable all matching</button>
+    <button id="bulk-clear">Clear selection</button>
+  </div>
+
+  <main>
+    <table>
+      <colgroup>
+        <col class="col-check" />
+        <col class="col-logo" />
+        <col class="col-name" />
+        <col class="col-type" />
+        <col class="col-source" />
+        <col class="col-group" />
+        <col class="col-imdb" />
+        <col class="col-toggle" />
+        <col class="col-actions" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="select-all" title="Select page"></th>
+          <th></th>
+          <th>Channel</th>
+          <th>Type</th>
+          <th>Source</th>
+          <th>Group</th>
+          <th>IMDB</th>
+          <th>Enabled</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="empty" class="empty" hidden>No channels. Hit <b>Refresh</b> to snag from sources.</div>
+  </main>
+
+  <div class="pager">
+    <span class="info" id="pager-info">—</span>
+    <span class="grow"></span>
+    <label class="field" style="flex-direction: row; align-items: center; gap: 6px;">Per page
+      <select id="page-size">
+        <option>50</option><option selected>100</option><option>200</option><option>500</option>
+      </select>
+    </label>
+    <button id="page-first" class="icon-btn">«</button>
+    <button id="page-prev" class="icon-btn">‹</button>
+    <span class="info" id="pager-page">1 / 1</span>
+    <button id="page-next" class="icon-btn">›</button>
+    <button id="page-last" class="icon-btn">»</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+const state = {
+  channels: [],
+  templates: [],
+  activeTemplateId: null,
+  selected: new Set(),     // selected keys (across pages)
+  expanded: new Set(),
+  filter: { q: '', source: '', type: '', group: '' },
+  page: 1,
+  pageSize: 100,
+  total: 0,
+  totalPages: 1,
+  stats: { sources: [], types: [], total: 0 },
+};
+
+const $ = (sel) => document.querySelector(sel);
+
+function escapeAttr(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function escapeHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+const toast = (msg, kind = 'ok') => {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (kind === 'error' ? ' error' : kind === 'warn' ? ' warn' : '');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 1800);
+};
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(body || res.statusText);
+  }
+  const ct = res.headers.get('content-type') || '';
+  return ct.includes('application/json') ? res.json() : res.text();
+}
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+async function loadTemplates() {
+  const data = await api('/api/templates');
+  state.templates = data.templates;
+  state.activeTemplateId = data.activeId;
+  $('#template-select').innerHTML = state.templates.map(t =>
+    `<option value="${t.id}" ${t.id === state.activeTemplateId ? 'selected' : ''}>${escapeHtml(t.name)}</option>`
+  ).join('');
+  const active = state.templates.find(t => t.id === state.activeTemplateId);
+  $('#proxy-toggle').checked = !!(active && active.proxy_mode);
+}
+
+async function loadStats() {
+  const params = new URLSearchParams();
+  if (state.filter.source) params.set('source', state.filter.source);
+  if (state.filter.type)   params.set('type',   state.filter.type);
+  // group filter intentionally excluded from stats query so all options stay visible
+  state.stats = await api('/api/stats?' + params.toString());
+
+  // Source dropdown (always lists all sources)
+  const srcSel = $('#source-filter');
+  srcSel.innerHTML = '<option value="">All sources</option>' +
+    state.stats.sources.map(s => `<option value="${escapeAttr(s.source)}">${escapeHtml(s.source)} (${s.n.toLocaleString()})</option>`).join('');
+  srcSel.value = state.filter.source;
+
+  // Group dropdown (scoped by source + type)
+  const groupSel = $('#group-filter');
+  groupSel.innerHTML = '<option value="">All groups</option>' +
+    state.stats.groups.map(g => {
+      const label = g.group ?? '(no group)';
+      return `<option value="${escapeAttr(g.group ?? '')}">${escapeHtml(label)} (${g.n.toLocaleString()})</option>`;
+    }).join('');
+  groupSel.value = state.filter.group;
+
+  // Type badges (scoped by source)
+  const typeMap = Object.fromEntries(state.stats.types.map(t => [t.stream_type, t.n]));
+  $('#badge-all').textContent    = state.stats.total ? state.stats.total.toLocaleString() : '';
+  $('#badge-live').textContent   = typeMap.live   ? typeMap.live.toLocaleString()   : '';
+  $('#badge-movie').textContent  = typeMap.movie  ? typeMap.movie.toLocaleString()  : '';
+  $('#badge-series').textContent = typeMap.series ? typeMap.series.toLocaleString() : '';
+}
+
+async function loadPage() {
+  const params = new URLSearchParams({
+    template: String(state.activeTemplateId),
+    page: String(state.page),
+    pageSize: String(state.pageSize),
+  });
+  if (state.filter.q)      params.set('q',      state.filter.q);
+  if (state.filter.source) params.set('source', state.filter.source);
+  if (state.filter.type)   params.set('type',   state.filter.type);
+  if (state.filter.group)  params.set('group',  state.filter.group);
+  const data = await api('/api/channels?' + params.toString());
+  state.channels = data.channels;
+  state.total = data.total;
+  state.totalPages = data.totalPages;
+  // Clamp page if filter shrank the result set
+  if (state.page > state.totalPages) { state.page = state.totalPages; return loadPage(); }
+  render();
+}
+
+function effective(c) {
+  return {
+    name:  c.override?.name  ?? c.name,
+    icon:  c.override?.icon  ?? c.icon  ?? '',
+    group: c.override?.group ?? c.group ?? '',
+  };
+}
+
+function hasOverride(c) {
+  return c.enabled === false ||
+    (c.override && (c.override.name != null || c.override.icon != null || c.override.group != null));
+}
+
+function rowHTML(c) {
+  const eff = effective(c);
+  const isSel = state.selected.has(c.key);
+  const isExp = state.expanded.has(c.key);
+  return `
+    <tr class="row ${c.enabled ? '' : 'disabled'}" data-key="${escapeAttr(c.key)}">
+      <td><input type="checkbox" data-role="select" ${isSel ? 'checked' : ''}></td>
+      <td><img class="logo" loading="lazy" alt="" src="${escapeAttr(eff.icon)}" onerror="this.classList.add('broken')"></td>
+      <td class="name-cell">
+        <input type="text" data-field="name" class="name-input ${c.override?.name != null ? 'overridden' : ''}" value="${escapeAttr(eff.name)}">
+        <div class="channel-id">${escapeHtml(c.channelId)}</div>
+      </td>
+      <td class="type-cell"><span class="pill ${escapeAttr(c.streamType || 'live')}">${escapeHtml(c.streamType || 'live')}</span></td>
+      <td class="source-cell">${escapeHtml(c.source)}</td>
+      <td class="group-cell ${c.override?.group != null ? 'overridden' : ''}" title="${escapeAttr(eff.group)}">${escapeHtml(eff.group)}</td>
+      <td class="imdb-cell">
+        <input type="text" data-field="imdbId" value="${escapeAttr(c.override?.imdbId ?? '')}" placeholder="tt…" class="${c.override?.imdbId ? 'has-value' : ''}" spellcheck="false">
+      </td>
+      <td>
+        <label class="toggle">
+          <input type="checkbox" data-field="enabled" ${c.enabled ? 'checked' : ''}>
+          <span class="track"></span>
+        </label>
+      </td>
+      <td>
+        <div class="row-actions">
+          <button data-role="expand" title="Edit icon &amp; group" class="${hasOverride(c) ? 'has-override' : ''}">✎</button>
+          <button data-role="reset" title="Reset overrides" ${hasOverride(c) ? '' : 'disabled'}>↺</button>
+        </div>
+      </td>
+    </tr>
+    ${isExp ? expandHTML(c) : ''}
+  `;
+}
+
+function expandHTML(c) {
+  const eff = effective(c);
+  const imdbOverride = c.override?.imdbId ?? '';
+  return `
+    <tr class="expand" data-expand-for="${escapeAttr(c.key)}">
+      <td colspan="9">
+        <div class="expand-inner">
+          <label class="field">Icon URL
+            <input type="url" data-field="icon" value="${escapeAttr(eff.icon)}" placeholder="https://…">
+          </label>
+          <label class="field">Group
+            <input type="text" data-field="group" value="${escapeAttr(eff.group)}" placeholder="(no group)">
+          </label>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function render() {
+  $('#rows').innerHTML = state.channels.map(rowHTML).join('');
+  $('#empty').hidden = state.total !== 0;
+  const start = state.total === 0 ? 0 : (state.page - 1) * state.pageSize + 1;
+  const end = Math.min(state.page * state.pageSize, state.total);
+  $('#pager-info').textContent = `${start.toLocaleString()}–${end.toLocaleString()} of ${state.total.toLocaleString()}`;
+  $('#pager-page').textContent = `${state.page} / ${state.totalPages}`;
+  $('#page-prev').disabled = state.page <= 1;
+  $('#page-first').disabled = state.page <= 1;
+  $('#page-next').disabled = state.page >= state.totalPages;
+  $('#page-last').disabled = state.page >= state.totalPages;
+  // Bulk bar visibility
+  $('#bulk-bar').classList.toggle('show', state.selected.size > 0);
+  $('#bulk-count').textContent = `${state.selected.size} selected`;
+  // Select-all checkbox state for current page
+  const sel = $('#select-all');
+  const pageKeys = state.channels.map(c => c.key);
+  const allSel = pageKeys.length > 0 && pageKeys.every(k => state.selected.has(k));
+  const someSel = pageKeys.some(k => state.selected.has(k));
+  sel.checked = allSel; sel.indeterminate = !allSel && someSel;
+}
+
+async function saveOverride(key, patch) {
+  try {
+    const data = await api(`/api/overrides/${encodeURIComponent(key)}?template=${state.activeTemplateId}`, {
+      method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(patch),
+    });
+    const ch = state.channels.find(c => c.key === key);
+    if (ch) {
+      ch.enabled = !!data.override.enabled;
+      ch.override = { name: data.override.name, icon: data.override.icon, group: data.override.group };
+    }
+    return true;
+  } catch (e) { toast('Save failed: ' + e.message, 'error'); return false; }
+}
+
+async function clearOverride(key) {
+  try {
+    await api(`/api/overrides/${encodeURIComponent(key)}?template=${state.activeTemplateId}`, { method: 'DELETE' });
+    const ch = state.channels.find(c => c.key === key);
+    if (ch) { ch.enabled = true; ch.override = { name: null, icon: null, group: null }; }
+    return true;
+  } catch (e) { toast('Reset failed: ' + e.message, 'error'); return false; }
+}
+
+async function bulkApply(patch) {
+  const keys = [...state.selected];
+  if (!keys.length) return;
+  try {
+    await api(`/api/overrides/bulk?template=${state.activeTemplateId}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ keys, patch }),
+    });
+    state.selected.clear();
+    await loadPage();
+    toast(`Updated ${keys.length}`);
+  } catch (e) { toast('Bulk update failed: ' + e.message, 'error'); }
+}
+
+async function bulkReset() {
+  const keys = [...state.selected];
+  if (!keys.length) return;
+  if (!confirm(`Reset overrides for ${keys.length} channel(s)?`)) return;
+  try {
+    await api(`/api/overrides/bulk-reset?template=${state.activeTemplateId}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ keys }),
+    });
+    state.selected.clear();
+    await loadPage();
+    toast(`Reset ${keys.length}`);
+  } catch (e) { toast('Bulk reset failed: ' + e.message, 'error'); }
+}
+
+async function bulkByFilter(filter, patch, confirmMsg) {
+  if (confirmMsg && !confirm(confirmMsg)) return;
+  try {
+    const data = await api(`/api/overrides/bulk-by-filter?template=${state.activeTemplateId}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ filter, patch }),
+    });
+    state.selected.clear();
+    await loadStats();
+    await loadPage();
+    toast(`Updated ${data.updated.toLocaleString()}`);
+  } catch (e) { toast('Bulk update failed: ' + e.message, 'error'); }
+}
+
+async function bulkDisableAllMatching() {
+  const total = state.total;
+  if (!total) return toast('Nothing matches', 'warn');
+  await bulkByFilter(state.filter, { enabled: false },
+    `Disable ${total.toLocaleString()} channel(s) matching the current filter?`);
+}
+
+async function disableEverything() {
+  const total = state.stats.total;
+  if (!total) return toast('No channels to disable', 'warn');
+  await bulkByFilter({}, { enabled: false },
+    `Disable ALL ${total.toLocaleString()} channels in this template? You can then re-enable individually.`);
+}
+
+async function enableEverything() {
+  const total = state.stats.total;
+  if (!total) return toast('No channels to enable', 'warn');
+  await bulkByFilter({}, { enabled: true },
+    `Enable ALL ${total.toLocaleString()} channels in this template?`);
+}
+
+async function refreshSources() {
+  const btn = $('#refresh-btn');
+  btn.disabled = true; btn.textContent = 'Refreshing…';
+  try {
+    const data = await api('/api/refresh', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}',
+    });
+    const total = data.results.reduce((a, r) => a + r.channels, 0);
+    toast(`Refreshed ${total.toLocaleString()} channels`);
+    await loadStats();
+    await loadPage();
+  } catch (e) { toast('Refresh failed: ' + e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Refresh'; }
+}
+
+// Wiring
+const searchDebounced = debounce(async (val) => {
+  state.filter.q = val; state.page = 1; await loadPage();
+}, 250);
+
+$('#search').addEventListener('input', e => searchDebounced(e.target.value));
+$('#source-filter').addEventListener('change', async e => {
+  state.filter.source = e.target.value; state.filter.group = ''; state.page = 1;
+  await loadStats(); await loadPage();
+});
+$('#group-filter').addEventListener('change', async e => { state.filter.group = e.target.value; state.page = 1; await loadPage(); });
+$('#refresh-btn').addEventListener('click', refreshSources);
+$('#disable-all').addEventListener('click', disableEverything);
+$('#enable-all').addEventListener('click', enableEverything);
+
+$('#proxy-toggle').addEventListener('change', async e => {
+  try {
+    await api(`/api/templates/${state.activeTemplateId}`, {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ proxyMode: e.target.checked }),
+    });
+    const t = state.templates.find(x => x.id === state.activeTemplateId);
+    if (t) t.proxy_mode = e.target.checked ? 1 : 0;
+    toast(e.target.checked ? 'Proxy mode on' : 'Proxy mode off');
+  } catch (err) { toast('Failed: ' + err.message, 'error'); e.target.checked = !e.target.checked; }
+});
+
+$('#tabs').addEventListener('click', async e => {
+  const btn = e.target.closest('.tab');
+  if (!btn) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  state.filter.type = btn.dataset.type || '';
+  state.filter.group = '';
+  state.page = 1;
+  await loadStats();
+  await loadPage();
+});
+
+$('#select-all').addEventListener('change', e => {
+  for (const c of state.channels) {
+    if (e.target.checked) state.selected.add(c.key); else state.selected.delete(c.key);
+  }
+  render();
+});
+
+$('#bulk-enable').addEventListener('click',  () => bulkApply({ enabled: true }));
+$('#bulk-disable').addEventListener('click', () => bulkApply({ enabled: false }));
+$('#bulk-reset').addEventListener('click',   bulkReset);
+$('#bulk-disable-all').addEventListener('click', bulkDisableAllMatching);
+$('#bulk-clear').addEventListener('click',   () => { state.selected.clear(); render(); });
+
+$('#page-first').addEventListener('click', async () => { state.page = 1; await loadPage(); });
+$('#page-prev').addEventListener('click',  async () => { if (state.page > 1) { state.page--; await loadPage(); } });
+$('#page-next').addEventListener('click',  async () => { if (state.page < state.totalPages) { state.page++; await loadPage(); } });
+$('#page-last').addEventListener('click',  async () => { state.page = state.totalPages; await loadPage(); });
+$('#page-size').addEventListener('change', async e => { state.pageSize = Number(e.target.value); state.page = 1; await loadPage(); });
+
+$('#template-select').addEventListener('change', async e => {
+  state.activeTemplateId = Number(e.target.value);
+  try {
+    await api('/api/active-template', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: state.activeTemplateId }),
+    });
+    state.selected.clear();
+    await loadPage();
+    toast('Switched template');
+  } catch (err) { toast('Switch failed: ' + err.message, 'error'); }
+});
+
+$('#template-new').addEventListener('click', async () => {
+  const name = prompt('New template name:');
+  if (!name) return;
+  try {
+    const data = await api('/api/templates', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    state.activeTemplateId = data.template.id;
+    await api('/api/active-template', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: data.template.id }),
+    });
+    await loadTemplates();
+    await loadPage();
+    toast(`Created "${data.template.name}"`);
+  } catch (e) { toast('Create failed: ' + e.message, 'error'); }
+});
+
+$('#template-delete').addEventListener('click', async () => {
+  if (state.templates.length <= 1) return toast('Cannot delete the last template', 'warn');
+  const t = state.templates.find(x => x.id === state.activeTemplateId);
+  if (!t) return;
+  if (!confirm(`Delete template "${t.name}"? This removes its overrides.`)) return;
+  try {
+    await api('/api/templates/' + t.id, { method: 'DELETE' });
+    await loadTemplates();
+    state.activeTemplateId = Number($('#template-select').value);
+    await loadPage();
+    toast(`Deleted "${t.name}"`);
+  } catch (e) { toast('Delete failed: ' + e.message, 'error'); }
+});
+
+// Table delegation
+$('#rows').addEventListener('change', async e => {
+  const t = e.target;
+  if (!(t instanceof HTMLInputElement)) return;
+  const tr = t.closest('tr');
+  if (!tr) return;
+  if (t.dataset.role === 'select') {
+    const key = tr.dataset.key;
+    if (t.checked) state.selected.add(key); else state.selected.delete(key);
+    render();
+    return;
+  }
+  if (t.dataset.field === 'enabled') {
+    const key = tr.dataset.key;
+    const ok = await saveOverride(key, { enabled: t.checked });
+    if (ok) {
+      tr.classList.toggle('disabled', !t.checked);
+      const ch = state.channels.find(c => c.key === key);
+      const exp = tr.querySelector('[data-role="expand"]');
+      const reset = tr.querySelector('[data-role="reset"]');
+      if (exp) exp.classList.toggle('has-override', hasOverride(ch));
+      if (reset) reset.disabled = !hasOverride(ch);
+    }
+    return;
+  }
+  if (t.dataset.field === 'name' || t.dataset.field === 'icon' || t.dataset.field === 'group' || t.dataset.field === 'imdbId') {
+    const key = tr.dataset.key || tr.dataset.expandFor;
+    const ch = state.channels.find(c => c.key === key);
+    if (!ch) return;
+    const original = t.dataset.field === 'name'   ? ch.name
+                   : t.dataset.field === 'icon'   ? (ch.icon ?? '')
+                   : t.dataset.field === 'group'  ? (ch.group ?? '')
+                                                  : '';   // imdbId has no underlying channel value
+    const value = t.value.trim();
+    const patch = {};
+    patch[t.dataset.field] = (value === '' || value === original) ? null : value;
+    const ok = await saveOverride(key, patch);
+    if (ok) render();
+    return;
+  }
+});
+
+$('#rows').addEventListener('click', async e => {
+  const t = e.target;
+  if (!(t instanceof HTMLButtonElement)) return;
+  const tr = t.closest('tr');
+  if (!tr) return;
+  const key = tr.dataset.key;
+  if (t.dataset.role === 'expand') {
+    if (state.expanded.has(key)) state.expanded.delete(key); else state.expanded.add(key);
+    render();
+  } else if (t.dataset.role === 'reset') {
+    const ok = await clearOverride(key);
+    if (ok) { state.expanded.delete(key); render(); toast('Reset'); }
+  }
+});
+
+// ---- Settings panel ----
+const settingsState = { sources: [], editing: null, addingType: null };
+
+function openSettings() {
+  $('#settings-backdrop').classList.add('open');
+  $('#settings-panel').classList.add('open');
+  loadSettingsPanel();
+  if (settingsState._poll) clearInterval(settingsState._poll);
+  settingsState._poll = setInterval(loadSettingsPanel, 3000);
+}
+function closeSettings() {
+  $('#settings-backdrop').classList.remove('open');
+  $('#settings-panel').classList.remove('open');
+  settingsState.editing = null;
+  settingsState.addingType = null;
+  $('#source-add-container').innerHTML = '';
+  if (settingsState._poll) { clearInterval(settingsState._poll); settingsState._poll = null; }
+}
+
+async function loadSettingsPanel() {
+  try {
+    const [s, cfg] = await Promise.all([api('/api/sources'), api('/api/settings')]);
+    settingsState.sources = s.sources;
+    settingsState.cache = s.cache;
+    renderSourceList();
+    $('#set-rd').value         = cfg.settings.rd_api_key ?? '';
+    $('#set-torrentio').value  = cfg.settings.torrentio_endpoint ?? 'https://torrentio.strem.fun';
+    $('#set-tmdb').value       = cfg.settings.tmdb_api_key ?? '';
+    $('#set-proxy-torrentio').checked = (cfg.settings.imdb_proxy_torrentio ?? 'true') !== 'false';
+  } catch (e) { toast('Settings load failed: ' + e.message, 'error'); }
+}
+
+function sourceFormHTML(prefill, idSuffix = '') {
+  const type = prefill?.type ?? settingsState.addingType ?? 'plutotv';
+  const cfg = prefill?.config ?? {};
+  const id = (k) => `f-${k}-${idSuffix}`;
+  let fields = '';
+  if (type === 'xtream') {
+    const creds = Array.isArray(cfg.credentials) ? cfg.credentials
+                : (cfg.username ? [{ username: cfg.username, password: cfg.password ?? '' }]
+                                : [{ username: '', password: '' }]);
+    const credRows = creds.map((c, i) => `
+      <div class="row cred-row" data-idx="${i}">
+        <input type="text" data-cred="username" value="${escapeAttr(c.username ?? '')}" placeholder="username">
+        <input type="password" data-cred="password" value="${escapeAttr(c.password ?? '')}" placeholder="${prefill ? '(unchanged)' : 'password'}">
+        <button type="button" data-act="cred-remove" class="icon-btn danger" title="Remove">×</button>
+      </div>
+    `).join('');
+    fields = `
+      <label class="field">Host (with port)
+        <input id="${id('host')}" type="url" value="${escapeAttr(cfg.host ?? '')}" placeholder="http://example.com:80">
+      </label>
+      <div class="field">
+        <span style="font-size: 12px; color: var(--muted);">Credentials (each adds max-connections to the pool)</span>
+        <div id="${id('creds')}" data-creds-list>${credRows}</div>
+        <button type="button" data-act="cred-add" style="align-self: flex-start; font-size: 12px;">+ Add credential</button>
+      </div>
+      <div class="row">
+        <label class="field">Stream container
+          <select id="${id('output')}">
+            <option value="ts" ${cfg.output !== 'm3u8' ? 'selected' : ''}>ts</option>
+            <option value="m3u8" ${cfg.output === 'm3u8' ? 'selected' : ''}>m3u8</option>
+          </select>
+        </label>
+        <label class="field">Proxy mode
+          <select id="${id('proxyMode')}">
+            <option value="auto" ${(cfg.proxyMode ?? 'auto') === 'auto' ? 'selected' : ''}>Auto (use template)</option>
+            <option value="on"   ${cfg.proxyMode === 'on'   ? 'selected' : ''}>Always proxy</option>
+            <option value="off"  ${cfg.proxyMode === 'off'  ? 'selected' : ''}>Never proxy</option>
+          </select>
+        </label>
+      </div>
+      <label class="toggle" style="align-self: flex-start;">
+        <input id="${id('includeMovies')}" type="checkbox" ${cfg.includeMovies !== false ? 'checked' : ''}>
+        <span class="track"></span>
+        <span style="margin-left: 6px; font-size: 12px;">Include movies (VOD)</span>
+      </label>
+    `;
+  } else if (type === 'm3u') {
+    fields = `
+      <label class="field">M3U URL
+        <input id="${id('m3uUrl')}" type="url" value="${escapeAttr(cfg.m3uUrl ?? '')}" placeholder="https://…">
+      </label>
+      <label class="field">EPG URL (optional)
+        <input id="${id('epgUrl')}" type="url" value="${escapeAttr(cfg.epgUrl ?? '')}" placeholder="https://…/xmltv.xml">
+      </label>
+      <label class="field">Proxy mode
+        <select id="${id('proxyMode')}">
+          <option value="auto" ${(cfg.proxyMode ?? 'auto') === 'auto' ? 'selected' : ''}>Auto (use template)</option>
+          <option value="on"   ${cfg.proxyMode === 'on'   ? 'selected' : ''}>Always proxy</option>
+          <option value="off"  ${cfg.proxyMode === 'off'  ? 'selected' : ''}>Never proxy</option>
+        </select>
+      </label>
+    `;
+  } else if (type === 'plutotv' || type === 'tubi') {
+    const label = type === 'tubi' ? 'Tubi' : 'PlutoTV';
+    fields = `
+      <div style="font-size: 12px; color: var(--muted);">${label} is free — no credentials needed.</div>
+      <label class="field">Proxy mode
+        <select id="${id('proxyMode')}">
+          <option value="auto" ${(cfg.proxyMode ?? 'auto') === 'auto' ? 'selected' : ''}>Auto (use template)</option>
+          <option value="on"   ${cfg.proxyMode === 'on'   ? 'selected' : ''}>Always proxy</option>
+          <option value="off"  ${cfg.proxyMode === 'off'  ? 'selected' : ''}>Never proxy</option>
+        </select>
+      </label>
+    `;
+  }
+  const intervalMin = prefill?.refreshIntervalMs != null
+    ? Math.round(prefill.refreshIntervalMs / 60_000)
+    : (type === 'plutotv' ? 60 : type === 'm3u' ? 720 : 360);
+  return `
+    <div class="source-form">
+      <label class="field">Name
+        <input id="${id('name')}" type="text" value="${escapeAttr(prefill?.name ?? '')}" ${prefill ? '' : 'placeholder="e.g. My Provider"'}>
+      </label>
+      <label class="field">Type
+        <select id="${id('type')}" ${prefill ? 'disabled' : ''}>
+          <option value="plutotv" ${type === 'plutotv' ? 'selected' : ''}>PlutoTV</option>
+          <option value="tubi"    ${type === 'tubi'    ? 'selected' : ''}>Tubi (free, live TV)</option>
+          <option value="xtream"  ${type === 'xtream'  ? 'selected' : ''}>Xtream Codes</option>
+          <option value="m3u"     ${type === 'm3u'     ? 'selected' : ''}>M3U + EPG URL</option>
+        </select>
+      </label>
+      ${fields}
+      <label class="field">Auto-refresh every (minutes; 0 = manual only)
+        <input id="${id('refreshInterval')}" type="number" min="0" step="1" value="${intervalMin}">
+      </label>
+      <div class="form-buttons">
+        ${prefill ? '<button data-act="cancel">Cancel</button>' : '<button data-act="cancel">Cancel</button>'}
+        <button data-act="save" class="primary">${prefill ? 'Save' : 'Add'}</button>
+      </div>
+    </div>
+  `;
+}
+
+function readFormConfig(type, idSuffix) {
+  const f = (k) => $(`#f-${k}-${idSuffix}`);
+  const config = {};
+  if (type === 'xtream') {
+    config.host = f('host').value.trim();
+    const list = $(`#f-creds-${idSuffix}`);
+    const rows = list ? list.querySelectorAll('.cred-row') : [];
+    const credentials = [];
+    rows.forEach(r => {
+      const u = r.querySelector('[data-cred="username"]').value.trim();
+      const p = r.querySelector('[data-cred="password"]').value;
+      if (u) credentials.push({ username: u, password: p });
+    });
+    config.credentials = credentials;
+    config.output = f('output').value;
+    config.includeMovies = f('includeMovies').checked;
+    config.proxyMode = f('proxyMode').value;
+  } else if (type === 'm3u') {
+    config.m3uUrl = f('m3uUrl').value.trim();
+    const epg = f('epgUrl').value.trim();
+    if (epg) config.epgUrl = epg;
+    config.proxyMode = f('proxyMode').value;
+  } else if (type === 'plutotv' || type === 'tubi') {
+    config.proxyMode = f('proxyMode').value;
+  }
+  const intervalEl = f('refreshInterval');
+  const refreshIntervalMs = intervalEl ? Number(intervalEl.value) * 60_000 : undefined;
+  return { name: f('name').value.trim(), type, config, refreshIntervalMs };
+}
+
+function renderSourceList() {
+  const html = settingsState.sources.map(s => {
+    const editing = settingsState.editing === s.id;
+    const status = s.lastStatus ?? '—';
+    const statusClass = status.startsWith('ok') ? 'ok' : status.startsWith('error') ? 'error' : '';
+    const last = s.lastRefreshed ? new Date(s.lastRefreshed).toLocaleString() : 'never';
+    let nextText = '';
+    if (s.refreshIntervalMs === 0) {
+      nextText = 'manual';
+    } else if (s.nextRefreshAt) {
+      const delta = s.nextRefreshAt - Date.now();
+      if (delta <= 0) nextText = 'due now';
+      else if (delta < 60_000) nextText = '< 1m';
+      else if (delta < 3600_000) nextText = `in ${Math.round(delta / 60_000)}m`;
+      else nextText = `in ${(delta / 3600_000).toFixed(1)}h`;
+    }
+    const intervalText = s.refreshIntervalMs === 0
+      ? 'auto-refresh off'
+      : `every ${s.refreshIntervalMs < 3600_000 ? Math.round(s.refreshIntervalMs / 60_000) + 'm' : (s.refreshIntervalMs / 3600_000).toFixed(1) + 'h'}`;
+    const info = s.info ?? null;
+    let infoLine = '';
+    if (info && Array.isArray(info.credentials)) {
+      const tm = info.totalMaxConnections ?? 0;
+      const ta = info.totalActiveConnections ?? 0;
+      const ours = s.active ?? 0;
+      const credLines = info.credentials.map(c => {
+        if (!c.ok) return `<div class="status error">${escapeHtml(c.username)} · ${escapeHtml(c.error ?? 'error')}</div>`;
+        const exp = c.expDate ? new Date(c.expDate).toLocaleDateString() : '?';
+        const trial = c.isTrial ? ' · trial' : '';
+        return `<div class="status">${escapeHtml(c.username)} · ${c.activeConnections ?? 0}/${c.maxConnections ?? '?'} upstream · expires ${exp}${trial}</div>`;
+      }).join('');
+      infoLine = `
+        <div class="status">Pool: <b>${ours}</b> active via Snagger · upstream ${ta}/${tm}</div>
+        ${credLines}
+      `;
+    } else if (info) {
+      // Backward-compat shape (pre-v6, single credential)
+      const exp = info.expDate ? new Date(info.expDate).toLocaleDateString() : '?';
+      const max = info.maxConnections ?? '?';
+      const upstreamActive = info.activeConnections ?? 0;
+      const ours = s.active ?? 0;
+      const trial = info.isTrial ? ' · trial' : '';
+      infoLine = `<div class="status">Conn: <b>${ours}</b> via Snagger · upstream ${upstreamActive}/${max} · expires ${exp}${trial}</div>`;
+    } else if (s.active) {
+      infoLine = `<div class="status">Conn: <b>${s.active}</b> via Snagger</div>`;
+    }
+    return `
+      <div class="source-card" data-id="${s.id}">
+        <div class="head">
+          <span class="name">${escapeHtml(s.name)}</span>
+          <span class="type">${escapeHtml(s.type)}</span>
+          <span class="spacer" style="flex:1"></span>
+          <label class="toggle">
+            <input type="checkbox" data-role="src-enable" ${s.enabled ? 'checked' : ''}>
+            <span class="track"></span>
+          </label>
+        </div>
+        <div class="status ${statusClass}">Last: ${escapeHtml(last)} · ${escapeHtml(status)}</div>
+        <div class="status">Auto-refresh: ${escapeHtml(intervalText)}${nextText ? ' · next ' + escapeHtml(nextText) : ''}</div>
+        ${infoLine}
+        <div class="actions">
+          <button data-role="src-refresh">Refresh</button>
+          <button data-role="src-test">Test</button>
+          <button data-role="src-edit">Edit</button>
+          <button data-role="src-delete" class="danger">Delete</button>
+        </div>
+        ${editing ? sourceFormHTML(s, 'edit') : ''}
+      </div>
+    `;
+  }).join('');
+  $('#source-list').innerHTML = html;
+  renderCacheStats();
+}
+
+function renderCacheStats() {
+  const c = settingsState.cache;
+  if (!c) return;
+  const el = $('#cache-stats');
+  if (!el) return;
+  const mb = (n) => (n / 1024 / 1024).toFixed(1) + ' MB';
+  const total = c.hits + c.misses;
+  const rate = total ? (100 * c.hits / total).toFixed(1) + '%' : '–';
+  el.textContent = `${c.entries} entries · ${mb(c.bytes)} / ${mb(c.maxBytes)} · ${c.hits} hits / ${c.misses} misses (${rate}) · ${c.inflightShares} shared in-flight`;
+}
+
+function addCredRowTo(listEl) {
+  const idx = listEl.querySelectorAll('.cred-row').length;
+  const div = document.createElement('div');
+  div.className = 'row cred-row';
+  div.dataset.idx = String(idx);
+  div.innerHTML = `
+    <input type="text" data-cred="username" placeholder="username">
+    <input type="password" data-cred="password" placeholder="password">
+    <button type="button" data-act="cred-remove" class="icon-btn danger" title="Remove">×</button>
+  `;
+  listEl.appendChild(div);
+}
+
+// Source list event delegation
+$('#source-list').addEventListener('click', async e => {
+  const card = e.target.closest('.source-card');
+  if (!card) return;
+  const id = Number(card.dataset.id);
+  const src = settingsState.sources.find(x => x.id === id);
+  if (!src) return;
+  const t = e.target;
+  if (!(t instanceof HTMLButtonElement)) return;
+  // Handle credential add/remove inside edit form
+  if (t.dataset.act === 'cred-add') {
+    const list = card.querySelector('[data-creds-list]');
+    if (list) addCredRowTo(list);
+    return;
+  }
+  if (t.dataset.act === 'cred-remove') {
+    const row = t.closest('.cred-row');
+    if (row) row.remove();
+    return;
+  }
+  const role = t.dataset.role || t.dataset.act;
+  if (role === 'src-refresh') {
+    t.disabled = true; t.textContent = '…';
+    try {
+      const r = await api(`/api/sources/${id}/refresh`, { method: 'POST' });
+      toast(`Refreshed ${src.name}: ${r.channels.toLocaleString()} channels`);
+      await loadStats(); await loadPage(); await loadSettingsPanel();
+    } catch (err) { toast('Refresh failed: ' + err.message, 'error'); }
+    finally { t.disabled = false; t.textContent = 'Refresh'; }
+  } else if (role === 'src-test') {
+    t.disabled = true; t.textContent = '…';
+    try {
+      const r = await api(`/api/sources/${id}/test`, { method: 'POST' });
+      toast(r.ok ? `${src.name}: ${r.message}` : `${src.name}: ${r.message}`, r.ok ? 'ok' : 'error');
+    } catch (err) { toast('Test failed: ' + err.message, 'error'); }
+    finally { t.disabled = false; t.textContent = 'Test'; }
+  } else if (role === 'src-edit') {
+    settingsState.editing = settingsState.editing === id ? null : id;
+    renderSourceList();
+  } else if (role === 'src-delete') {
+    if (!confirm(`Delete source "${src.name}"? This also removes its channels.`)) return;
+    try {
+      const r = await api(`/api/sources/${id}`, { method: 'DELETE' });
+      toast(`Deleted ${src.name} (${r.deletedChannels.toLocaleString()} channels)`);
+      await loadStats(); await loadPage(); await loadSettingsPanel();
+    } catch (err) { toast('Delete failed: ' + err.message, 'error'); }
+  } else if (role === 'cancel') {
+    settingsState.editing = null;
+    renderSourceList();
+  } else if (role === 'save') {
+    const formData = readFormConfig(src.type, 'edit');
+    try {
+      await api(`/api/sources/${id}`, {
+        method: 'PUT', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: formData.name, config: formData.config }),
+      });
+      toast('Saved');
+      settingsState.editing = null;
+      await loadSettingsPanel();
+    } catch (err) { toast('Save failed: ' + err.message, 'error'); }
+  }
+});
+
+// Source enable toggle delegation
+$('#source-list').addEventListener('change', async e => {
+  const t = e.target;
+  if (t.dataset.role !== 'src-enable') return;
+  const card = t.closest('.source-card');
+  const id = Number(card.dataset.id);
+  try {
+    await api(`/api/sources/${id}`, {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ enabled: t.checked }),
+    });
+    toast(t.checked ? 'Enabled' : 'Disabled');
+    await loadSettingsPanel();
+  } catch (err) { toast('Toggle failed: ' + err.message, 'error'); t.checked = !t.checked; }
+});
+
+// Add source flow
+$('#source-add-toggle').addEventListener('click', () => {
+  if (settingsState.addingType) {
+    settingsState.addingType = null;
+    $('#source-add-container').innerHTML = '';
+  } else {
+    settingsState.addingType = 'plutotv';
+    $('#source-add-container').innerHTML = sourceFormHTML(null, 'add');
+  }
+});
+
+$('#source-add-container').addEventListener('change', e => {
+  if (e.target.id === 'f-type-add') {
+    settingsState.addingType = e.target.value;
+    // Re-render form with the new type's fields
+    const oldName = ($('#f-name-add')?.value ?? '');
+    $('#source-add-container').innerHTML = sourceFormHTML(null, 'add');
+    if (oldName) $('#f-name-add').value = oldName;
+  }
+});
+
+$('#source-add-container').addEventListener('click', async e => {
+  if (!(e.target instanceof HTMLButtonElement)) return;
+  if (e.target.dataset.act === 'cred-add') {
+    const list = $('#source-add-container').querySelector('[data-creds-list]');
+    if (list) addCredRowTo(list);
+    return;
+  }
+  if (e.target.dataset.act === 'cred-remove') {
+    const row = e.target.closest('.cred-row');
+    if (row) row.remove();
+    return;
+  }
+  const act = e.target.dataset.act;
+  if (act === 'cancel') {
+    settingsState.addingType = null;
+    $('#source-add-container').innerHTML = '';
+  } else if (act === 'save') {
+    const type = $('#f-type-add').value;
+    const formData = readFormConfig(type, 'add');
+    if (!formData.name) return toast('Name is required', 'warn');
+    try {
+      await api('/api/sources', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      toast(`Added ${formData.name}`);
+      settingsState.addingType = null;
+      $('#source-add-container').innerHTML = '';
+      await loadStats(); await loadSettingsPanel();
+    } catch (err) { toast('Add failed: ' + err.message, 'error'); }
+  }
+});
+
+$('#settings-btn').addEventListener('click', openSettings);
+$('#settings-close').addEventListener('click', closeSettings);
+$('#settings-backdrop').addEventListener('click', closeSettings);
+
+$('#settings-save').addEventListener('click', async () => {
+  try {
+    await api('/api/settings', {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        rd_api_key: $('#set-rd').value.trim() || null,
+        torrentio_endpoint: $('#set-torrentio').value.trim() || null,
+        tmdb_api_key: $('#set-tmdb').value.trim() || null,
+        imdb_proxy_torrentio: $('#set-proxy-torrentio').checked ? 'true' : 'false',
+      }),
+    });
+    toast('Settings saved');
+  } catch (e) { toast('Save failed: ' + e.message, 'error'); }
+});
+
+// ---- Catalog ----
+const catalogState = {
+  view: 'browse',   // 'browse' | 'detail'
+  kind: 'movie',
+  query: '',
+  page: 1,
+  totalPages: 1,
+  totalResults: 0,
+  results: [],
+  detail: null,
+  currentSeason: null,
+  episodes: [],
+  pinCtx: null,     // { imdbId, season?, episode? } — what we're editing pins for
+  pins: [],
+  sources: { torrentio: [], channels: [] },
+};
+
+function openCatalog() {
+  $('#catalog-overlay').classList.add('open');
+  loadCatalogPopular();
+}
+function closeCatalog() {
+  $('#catalog-overlay').classList.remove('open');
+}
+function setCatalogView(view) {
+  catalogState.view = view;
+  $('#catalog-grid-wrap').style.display   = view === 'browse' ? '' : 'none';
+  $('#catalog-detail-wrap').style.display = view === 'detail' ? '' : 'none';
+  $('#catalog-back').style.display        = view === 'detail' ? '' : 'none';
+}
+
+async function loadCatalogPopular() {
+  catalogState.query = '';
+  catalogState.page = 1;
+  $('#catalog-search').value = '';
+  await fetchCatalogGrid();
+}
+
+async function fetchCatalogGrid() {
+  try {
+    const params = new URLSearchParams({ kind: catalogState.kind, page: String(catalogState.page) });
+    let data;
+    if (catalogState.query) {
+      params.set('q', catalogState.query);
+      data = await api('/api/catalog/search?' + params.toString());
+    } else {
+      data = await api('/api/catalog/popular?' + params.toString());
+    }
+    catalogState.results = data.results;
+    catalogState.page = data.page;
+    catalogState.totalPages = data.totalPages;
+    catalogState.totalResults = data.totalResults;
+    renderCatalogGrid();
+    setCatalogView('browse');
+  } catch (e) { toast('Catalog load failed: ' + e.message, 'error'); }
+}
+
+function renderCatalogGrid() {
+  const html = catalogState.results.map(r => `
+    <div class="poster-card" data-tmdb-id="${r.tmdbId}" data-kind="${escapeAttr(r.kind)}">
+      <div class="img">${r.poster ? `<img src="${escapeAttr(r.poster)}" loading="lazy" alt="">` : ''}</div>
+      <div class="meta">
+        <div class="title">${escapeHtml(r.title)}</div>
+        <div class="sub">${escapeHtml(r.year ?? '')} · ★ ${r.voteAverage.toFixed(1)}</div>
+      </div>
+    </div>
+  `).join('');
+  $('#catalog-grid-wrap').innerHTML = `<div class="catalog-grid">${html}</div>`;
+  $('#catalog-page-info').textContent = `${catalogState.page} / ${catalogState.totalPages} · ${catalogState.totalResults.toLocaleString()} titles`;
+  $('#catalog-prev').disabled = catalogState.page <= 1;
+  $('#catalog-next').disabled = catalogState.page >= catalogState.totalPages;
+}
+
+async function openTitle(tmdbId, kind) {
+  try {
+    const detail = await api(`/api/catalog/tmdb/${kind}/${tmdbId}`);
+    catalogState.detail = detail;
+    catalogState.currentSeason = detail.kind === 'tv' && detail.seasons?.length ? detail.seasons[0].seasonNumber : null;
+    catalogState.episodes = [];
+    setCatalogView('detail');
+    if (detail.imdbId) {
+      // movie pins
+      if (detail.kind === 'movie') {
+        await loadPinsAndSources(detail.imdbId, undefined, undefined, detail.title);
+      } else if (catalogState.currentSeason != null) {
+        await loadEpisodesAndDefaultPins(detail);
+      }
+    }
+    renderCatalogDetail();
+  } catch (e) { toast('Title load failed: ' + e.message, 'error'); }
+}
+
+async function loadPinsAndSources(imdbId, season, episode, titleHint) {
+  catalogState.pinCtx = { imdbId, season, episode };
+  const segs = season != null ? `/${season}/${episode}` : '';
+  const params = new URLSearchParams({ kind: catalogState.detail?.kind === 'tv' ? 'tv' : 'movie' });
+  if (titleHint) params.set('title', titleHint);
+  try {
+    const [pinsRes, sourcesRes] = await Promise.all([
+      api(`/api/catalog/title/${imdbId}${segs}/pins`),
+      api(`/api/catalog/title/${imdbId}${segs}/sources?` + params.toString()),
+    ]);
+    catalogState.pins = pinsRes.pins ?? [];
+    catalogState.sources = sourcesRes;
+  } catch (e) {
+    catalogState.pins = [];
+    catalogState.sources = { torrentio: [], channels: [] };
+    toast('Sources load: ' + e.message, 'warn');
+  }
+}
+
+async function loadEpisodesAndDefaultPins(detail) {
+  try {
+    const eps = await api(`/api/catalog/tmdb/tv/${detail.tmdbId}/season/${catalogState.currentSeason}`);
+    catalogState.episodes = eps;
+  } catch (e) {
+    catalogState.episodes = [];
+  }
+  // No episode selected by default — pins panel hidden until user picks
+  catalogState.pinCtx = null;
+  catalogState.pins = [];
+  catalogState.sources = { torrentio: [], channels: [] };
+}
+
+function urlFor(imdbId, season, episode, asStrm = false) {
+  const base = location.origin;
+  const segs = season != null && episode != null ? `/${season}/${episode}` : '';
+  return `${base}/imdb/${imdbId}${segs}${asStrm ? '.strm' : ''}`;
+}
+
+function renderCatalogDetail() {
+  const d = catalogState.detail;
+  if (!d) { $('#catalog-detail-wrap').innerHTML = '<div class="empty">No data</div>'; return; }
+  const seasonPicker = d.kind === 'tv' && d.seasons ? `
+    <label class="field" style="margin-top: 12px;">Season
+      <select id="ep-season">
+        ${d.seasons.map(s => `<option value="${s.seasonNumber}" ${s.seasonNumber === catalogState.currentSeason ? 'selected' : ''}>${escapeHtml(s.name)} (${s.episodeCount} eps)</option>`).join('')}
+      </select>
+    </label>
+  ` : '';
+
+  const episodeList = d.kind === 'tv' ? `
+    <h4 class="section-h">Episodes</h4>
+    <div id="episodes-list">
+      ${catalogState.episodes.map(e => `
+        <div class="episode-row" data-ep="${e.episodeNumber}">
+          <div class="ep-num">${e.episodeNumber}</div>
+          <div class="ep-info">
+            <div class="ep-title">${escapeHtml(e.name)}</div>
+            <div class="ep-sub">${escapeHtml(e.airDate ?? '')}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  ` : '';
+
+  const urlInfo = d.imdbId ? `
+    <div class="url-display">
+      <code>${escapeHtml(urlFor(d.imdbId, catalogState.pinCtx?.season, catalogState.pinCtx?.episode))}</code>
+      <button data-act="copy-url">Copy</button>
+      <button data-act="download-strm">.strm</button>
+    </div>
+  ` : '<div class="status warn">No IMDB ID for this title yet.</div>';
+
+  const pinsSection = (d.imdbId && (d.kind === 'movie' || catalogState.pinCtx?.episode != null)) ? `
+    <h4 class="section-h">Resolution chain — tried in order, first hit wins. Auto-fallback to best Torrentio after the chain.</h4>
+    ${renderPinChain()}
+    <h4 class="section-h">Add from available sources</h4>
+    ${renderSourceOptions()}
+  ` : '';
+
+  $('#catalog-detail-wrap').innerHTML = `
+    <div class="catalog-detail">
+      <div class="head">
+        <div class="poster">${d.poster ? `<img src="${escapeAttr(d.poster)}" alt="">` : ''}</div>
+        <div class="info">
+          <h1>${escapeHtml(d.title)}</h1>
+          <div class="sub">${escapeHtml(d.year ?? '')} · ${escapeHtml(d.kind === 'tv' ? 'TV' : 'Movie')}${d.runtime ? ' · ' + d.runtime + ' min' : ''} · ★ ${d.voteAverage.toFixed(1)}${d.imdbId ? ' · ' + escapeHtml(d.imdbId) : ''}</div>
+          <div class="overview">${escapeHtml(d.overview)}</div>
+          ${urlInfo}
+          ${seasonPicker}
+        </div>
+      </div>
+      ${episodeList}
+      ${pinsSection}
+    </div>
+  `;
+}
+
+function renderPinChain() {
+  if (!catalogState.pins.length) {
+    return '<div class="status" style="color: var(--muted);">No pins yet. Auto-fallback will use best Torrentio result.</div>';
+  }
+  return `<div class="pin-chain">${catalogState.pins.map((p, i) => {
+    let label, type;
+    if (p.type === 'channel') {
+      type = 'channel';
+      label = `Channel: ${escapeHtml(p.channelKey)}`;
+    } else if (p.type === 'episode') {
+      type = 'channel';
+      label = `Episode: ${escapeHtml(p.seriesKey)} · S${p.season}E${p.episode}${p.title ? ' · ' + escapeHtml(p.title) : ''}`;
+    } else if (p.type === 'tubi') {
+      type = 'channel';
+      label = `Tubi: ${escapeHtml(p.title ?? p.tubiId)}`;
+    } else {
+      type = 'torrentio';
+      label = p.infoHash ? `Torrentio pinned: ${escapeHtml(p.title ?? p.infoHash.slice(0, 12))}` : 'Torrentio (best available)';
+    }
+    return `
+      <div class="pin-item" data-idx="${i}">
+        <span class="pin-num">${i + 1}.</span>
+        <span class="pin-label">${label}</span>
+        <span class="pin-type ${type}">${type}</span>
+        <button data-act="pin-up"   ${i === 0 ? 'disabled' : ''}>↑</button>
+        <button data-act="pin-down" ${i === catalogState.pins.length - 1 ? 'disabled' : ''}>↓</button>
+        <button data-act="pin-remove" class="danger">×</button>
+      </div>
+    `;
+  }).join('')}</div>`;
+}
+
+function renderSourceOptions() {
+  const torrAutoExists = catalogState.pins.some(p => p.type === 'torrentio' && !p.infoHash);
+  const autoBtn = `<button data-act="add-auto" ${torrAutoExists ? 'disabled' : ''}>+ Pin "best Torrentio (auto)"</button>`;
+  const tor = catalogState.sources.torrentio.slice(0, 30).map((s) => {
+    const pinned = catalogState.pins.some(p => p.type === 'torrentio' && p.infoHash === s.infoHash);
+    return `
+      <div class="source-option">
+        <span class="opt-label">${escapeHtml(s.title ?? '')}<div class="opt-sub">${escapeHtml(s.infoHash?.slice(0, 12) ?? '?')}…</div></span>
+        ${typeof s.quality === 'number' ? `<span class="quality-badge">q=${s.quality}</span>` : ''}
+        <button data-act="add-torrentio" data-hash="${escapeAttr(s.infoHash ?? '')}" data-title="${escapeAttr(s.title ?? '')}" ${pinned ? 'disabled' : ''}>${pinned ? 'Pinned' : '+ Pin'}</button>
+      </div>
+    `;
+  }).join('');
+  const tubi = (catalogState.sources.tubi ?? []).map(t => {
+    const pinned = catalogState.pins.some(p => p.type === 'tubi' && p.tubiId === t.tubiId);
+    return `
+      <div class="source-option">
+        <span class="opt-label">${escapeHtml(t.title ?? '')}${t.tubiYear ? ' (' + t.tubiYear + ')' : ''}
+          <div class="opt-sub">Tubi · ${escapeHtml(t.tubiType ?? '')}</div>
+        </span>
+        <button data-act="add-tubi" data-tid="${escapeAttr(t.tubiId ?? '')}" data-title="${escapeAttr(t.title ?? '')}" data-manifest="${escapeAttr(t.tubiManifest ?? '')}" ${pinned ? 'disabled' : ''}>${pinned ? 'Pinned' : '+ Pin'}</button>
+      </div>
+    `;
+  }).join('');
+  const eps = (catalogState.sources.episodes ?? []).map(e => {
+    const pinned = catalogState.pins.some(p => p.type === 'episode' && p.seriesKey === e.seriesKey && p.season === e.season && p.episode === e.episode);
+    return `
+      <div class="source-option">
+        <span class="opt-label">${escapeHtml(e.seriesName ?? '')} · S${e.season}E${e.episode}
+          <div class="opt-sub">${escapeHtml(e.channelSource ?? '')} · ${escapeHtml(e.episodeTitle ?? '')}</div>
+        </span>
+        <button data-act="add-episode" data-skey="${escapeAttr(e.seriesKey ?? '')}" data-season="${e.season}" data-episode="${e.episode}" data-title="${escapeAttr(e.episodeTitle ?? '')}" ${pinned ? 'disabled' : ''}>${pinned ? 'Pinned' : '+ Pin'}</button>
+      </div>
+    `;
+  }).join('');
+  const ch = catalogState.sources.channels.slice(0, 30).map(c => {
+    const pinned = catalogState.pins.some(p => p.type === 'channel' && p.channelKey === c.channelKey);
+    return `
+      <div class="source-option">
+        <span class="opt-label">${escapeHtml(c.channelName ?? '')}<div class="opt-sub">${escapeHtml(c.channelSource ?? '')} · ${escapeHtml(c.channelGroup ?? '')}</div></span>
+        <button data-act="add-channel" data-key="${escapeAttr(c.channelKey ?? '')}" ${pinned ? 'disabled' : ''}>${pinned ? 'Pinned' : '+ Pin'}</button>
+      </div>
+    `;
+  }).join('');
+  return `
+    <div style="margin-bottom: 8px;">${autoBtn}</div>
+    ${tubi ? `<h4 class="section-h">Tubi (free, ad-supported)</h4><div class="sources-grid">${tubi}</div>` : ''}
+    ${eps ? `<h4 class="section-h">Matching series episodes (${catalogState.sources.episodes.length})</h4><div class="sources-grid">${eps}</div>` : ''}
+    <h4 class="section-h">Torrentio results (${catalogState.sources.torrentio.length})</h4>
+    <div class="sources-grid">${tor}</div>
+    ${ch ? `<h4 class="section-h">Matching channels (${catalogState.sources.channels.length})</h4><div class="sources-grid">${ch}</div>` : ''}
+  `;
+}
+
+async function savePins() {
+  if (!catalogState.pinCtx) return;
+  const { imdbId, season, episode } = catalogState.pinCtx;
+  const segs = season != null ? `/${season}/${episode}` : '';
+  try {
+    await api(`/api/catalog/title/${imdbId}${segs}/pins`, {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pins: catalogState.pins }),
+    });
+  } catch (e) { toast('Save pins failed: ' + e.message, 'error'); }
+}
+
+// Wiring
+$('#catalog-btn').addEventListener('click', openCatalog);
+$('#catalog-close').addEventListener('click', closeCatalog);
+$('#catalog-back').addEventListener('click', () => { setCatalogView('browse'); });
+
+$('#catalog-kind').addEventListener('click', async e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  catalogState.kind = btn.dataset.kind;
+  document.querySelectorAll('#catalog-kind button').forEach(b => b.classList.toggle('active', b === btn));
+  catalogState.page = 1;
+  await fetchCatalogGrid();
+});
+
+const catalogSearchDebounced = debounce(async () => {
+  catalogState.query = $('#catalog-search').value.trim();
+  catalogState.page = 1;
+  await fetchCatalogGrid();
+}, 350);
+$('#catalog-search').addEventListener('input', catalogSearchDebounced);
+
+$('#catalog-prev').addEventListener('click', async () => { if (catalogState.page > 1) { catalogState.page--; await fetchCatalogGrid(); } });
+$('#catalog-next').addEventListener('click', async () => { if (catalogState.page < catalogState.totalPages) { catalogState.page++; await fetchCatalogGrid(); } });
+
+$('#catalog-grid-wrap').addEventListener('click', async e => {
+  const card = e.target.closest('.poster-card');
+  if (!card) return;
+  await openTitle(Number(card.dataset.tmdbId), card.dataset.kind);
+});
+
+$('#catalog-detail-wrap').addEventListener('click', async e => {
+  const t = e.target;
+  // Season change
+  if (t.id === 'ep-season') return; // handled by change event
+  // Episode row click
+  const epRow = t.closest('.episode-row');
+  if (epRow) {
+    const epNum = Number(epRow.dataset.ep);
+    if (catalogState.detail?.imdbId) {
+      await loadPinsAndSources(catalogState.detail.imdbId, catalogState.currentSeason, epNum, catalogState.detail.title);
+      renderCatalogDetail();
+    }
+    return;
+  }
+  if (!(t instanceof HTMLButtonElement)) return;
+  const act = t.dataset.act;
+  if (act === 'copy-url') {
+    const ctx = catalogState.pinCtx ?? { imdbId: catalogState.detail.imdbId };
+    navigator.clipboard.writeText(urlFor(ctx.imdbId, ctx.season, ctx.episode));
+    toast('Copied');
+  } else if (act === 'download-strm') {
+    const ctx = catalogState.pinCtx ?? { imdbId: catalogState.detail.imdbId };
+    const a = document.createElement('a');
+    a.href = urlFor(ctx.imdbId, ctx.season, ctx.episode, true);
+    a.download = `${(catalogState.detail.title || ctx.imdbId).replace(/[^\w-]+/g, '_')}.strm`;
+    document.body.appendChild(a); a.click(); a.remove();
+  } else if (act === 'add-auto') {
+    catalogState.pins.push({ type: 'torrentio' });
+    await savePins(); renderCatalogDetail();
+  } else if (act === 'add-torrentio') {
+    catalogState.pins.push({ type: 'torrentio', infoHash: t.dataset.hash, title: t.dataset.title });
+    await savePins(); renderCatalogDetail();
+  } else if (act === 'add-channel') {
+    catalogState.pins.push({ type: 'channel', channelKey: t.dataset.key });
+    await savePins(); renderCatalogDetail();
+  } else if (act === 'add-episode') {
+    catalogState.pins.push({
+      type: 'episode',
+      seriesKey: t.dataset.skey,
+      season: Number(t.dataset.season),
+      episode: Number(t.dataset.episode),
+      title: t.dataset.title || undefined,
+    });
+    await savePins(); renderCatalogDetail();
+  } else if (act === 'add-tubi') {
+    catalogState.pins.push({
+      type: 'tubi',
+      tubiId: t.dataset.tid,
+      title: t.dataset.title || undefined,
+      manifestUrl: t.dataset.manifest || undefined,
+    });
+    await savePins(); renderCatalogDetail();
+  } else if (act === 'pin-up' || act === 'pin-down' || act === 'pin-remove') {
+    const item = t.closest('.pin-item');
+    const i = Number(item.dataset.idx);
+    if (act === 'pin-up' && i > 0) [catalogState.pins[i-1], catalogState.pins[i]] = [catalogState.pins[i], catalogState.pins[i-1]];
+    else if (act === 'pin-down' && i < catalogState.pins.length - 1) [catalogState.pins[i+1], catalogState.pins[i]] = [catalogState.pins[i], catalogState.pins[i+1]];
+    else if (act === 'pin-remove') catalogState.pins.splice(i, 1);
+    await savePins(); renderCatalogDetail();
+  }
+});
+
+$('#catalog-detail-wrap').addEventListener('change', async e => {
+  if (e.target.id === 'ep-season') {
+    catalogState.currentSeason = Number(e.target.value);
+    catalogState.pinCtx = null;
+    if (catalogState.detail) await loadEpisodesAndDefaultPins(catalogState.detail);
+    renderCatalogDetail();
+  }
+});
+
+(async function init() {
+  try {
+    await loadTemplates();
+    await loadStats();
+    await loadPage();
+  } catch (e) {
+    toast('Load failed: ' + e.message, 'error');
+  }
+})();
+</script>
+</body>
+</html>

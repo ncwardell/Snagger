@@ -1,0 +1,60 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg:            #09090b;
+  --color-surface:       #111114;
+  --color-surface-2:     #18181b;
+  --color-surface-3:     #232328;
+  --color-border:        #2a2a31;
+  --color-border-strong: #3a3a42;
+  --color-fg:            #f4f4f5;
+  --color-fg-2:          #d4d4d8;
+  --color-fg-muted:      #9b9ba3;
+  --color-fg-faint:      #6b6b75;
+  --color-brand:         #6366f1;
+  --color-brand-hover:   #5457e0;
+  --color-brand-soft:    rgba(99, 102, 241, 0.16);
+  --color-success:       #10b981;
+  --color-warning:       #f59e0b;
+  --color-danger:        #f43f5e;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', SFMono-Regular, Menlo, monospace;
+}
+
+html, body, #app {
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv02', 'cv03', 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body { margin: 0; }
+
+::-webkit-scrollbar       { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 8px; border: 2px solid var(--color-bg); }
+::-webkit-scrollbar-thumb:hover { background: #4a4a52; }
+
+button, [role="button"] { cursor: pointer; }
+button:disabled, [role="button"][aria-disabled="true"] { cursor: not-allowed; }
+
+input[type="text"], input[type="search"], input[type="number"], input[type="url"], input[type="password"], textarea, select {
+  font: inherit;
+}
+
+/* focus rings — consistent across inputs and buttons */
+.focus-ring:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
